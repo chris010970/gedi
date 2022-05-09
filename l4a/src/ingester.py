@@ -45,6 +45,8 @@ def writeToDataTable( pathname, aoi, config ):
         # get beam data
         obj = GediL4a( pathname )
         gdf = obj.getBeamData( aoi=aoi.geometry.iloc[ 0 ] )
+
+        gdf[ 'filename' ] = os.path.basename( pathname )
         gdf = gdf.set_index( 'shot_number' )
 
         # set up database connection engine
