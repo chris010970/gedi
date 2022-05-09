@@ -40,27 +40,34 @@ def writeToDataTable( pathname, aoi, config ):
     writeToDataTable
     """
 
-    # get beam data
-    obj = GediL4a( pathname )
-    gdf = obj.getBeamData( aoi=aoi.geometry.iloc[ 0 ] )
-    gdf = gdf.set_index( 'shot_number' )
+    try:
 
-    # set up database connection engine
-    server = config.server
-    connection = 'postgresql://{user}:{password}@{host}:{port}/{database}'.format( user=server.user, 
-                                                                                    password=server.password, 
-                                                                                    host=server.host, 
-                                                                                    port=server.port, 
-                                                                                    database=server.database )
-    engine = create_engine( connection )
+        # get beam data
+        obj = GediL4a( pathname )
+        gdf = obj.getBeamData( aoi=aoi.geometry.iloc[ 0 ] )
+        gdf = gdf.set_index( 'shot_number' )
 
-    # geoDataFrame to postGIS - append to existing table
-    gdf.to_postgis( con=engine,
-                    name=config.table.name,
-                    schema=config.table.schema,
-                    if_exists='append', 
-                    index=True )
+        # set up database connection engine
+        server = config.server
+        connection = 'postgresql://{user}:{password}@{host}:{port}/{database}'.format( user=server.user, 
+                                                                                        password=server.password, 
+                                                                                        host=server.host, 
+                                                                                        port=server.port, 
+                                                                                        database=server.database )
+        engine = create_engine( connection )
 
+        # geoDataFrame to postGIS - append to existing table
+        gdf.to_postgis( con=engine,
+                        name=config.table.name,
+                        schema=config.table.schema,
+                        if_exists='append', 
+                        index=True )
+
+    except BaseException as err:
+        # print exception
+        print ( 'Exception reading {pathname} : {msg}'.format( pathname=pathname, msg=str ( err ) ) )
+        pass
+        
     return 
 
 
@@ -97,6 +104,7 @@ if __name__ == '__main__':
         config = munchify( yaml.safe_load( f ) )
 
     # write datasets to postgis data table
-    pathnames = glob.glob( '{path}\\*.h5'.format( path=args.data_path ) ) 
-    for pathname in pathnames:
+    pathnames = glob.glob( '{path}/*.h5'.format( path=args.data_path ) ) 
+    for idx, pathname in enumerate( pathnames ):
         writeToDataTable( pathname, aoi, config )
+
