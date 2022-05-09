@@ -1,5 +1,3 @@
-import os
-import glob
 import h5py
 import requests
 import numpy as np
@@ -7,11 +5,8 @@ import pandas as pd
 import geopandas as gpd
 
 from datetime import datetime
-from shapely.ops import orient
 from shapely.geometry import Polygon
 from shapely.geometry import MultiPolygon
-
-from sqlalchemy import create_engine
 
 
 class GediL4a():
@@ -24,6 +19,10 @@ class GediL4a():
 
     def __init__( self, pathname ):
 
+        """
+        constructor
+        """
+
         # open file as read-only
         self._hf = h5py.File( pathname, 'r' )
 
@@ -34,7 +33,9 @@ class GediL4a():
 
     def getBeamData( self, aoi=None ):
 
-
+        """
+        getBeamData
+        """
 
         # empty dataframe
         df = pd.DataFrame()
@@ -76,6 +77,10 @@ class GediL4a():
 
     def getGroupData( self, group ):
         
+        """
+        getGroupData
+        """
+
         # iterate through values
         names, values = [], []
         for key, value in group.items():
@@ -100,6 +105,10 @@ class GediL4a():
 
 
     def getGeolocationData( self, aoi=None ):
+
+        """
+        getGeolocationData
+        """
 
         # intermediate lists
         lat_l, lon_l, time_l, beam_n, shot_l = [], [], [], [], []
@@ -130,6 +139,7 @@ class GediL4a():
         # create dataframe with datetime column
         df = pd.DataFrame( list(zip(shot_l,beam_n,lat_l,lon_l,time_l) ), columns=['shot_number', 'beam', 'lat', 'lon', 'delta_time' ] )
         df[ 'datetime' ] = self._base_time + pd.to_timedelta( df.delta_time, unit='s' )
+        df[ 'datetime' ] = df[ 'datetime' ].tz_localize('UTC')
 
         # convert to geodataframe registered to geographic crs
         gdf = gpd.GeoDataFrame(  df, geometry=gpd.points_from_xy( df.lon, df.lat ) )
@@ -149,7 +159,15 @@ class GediL4a():
     @staticmethod
     def getGranuleMetadata( aoi ):
 
+        """
+        getGranuleMetadata
+        """
+
         def getCollectionConceptId():
+
+            """
+            getCollectionConceptId
+            """
 
             # retrieve metadata catalogue
             doisearch = GediL4a.base_url + f'collections.json?doi={GediL4a.doi}'
@@ -218,76 +236,3 @@ class GediL4a():
         df = gpd.GeoDataFrame( metadata )
         df = df.set_crs( "EPSG:4326" )
         return df.drop_duplicates( subset=['url'] )
-
-
-    def getKenyaAoi( path, names ):
-
-        # load selected county boundaries
-        def getCounties( names ):         
-            return admin[ admin [ 'Name' ].isin( names ) ]
-
-        # load kenyan admin boundaries
-        admin = gpd.read_file( os.path.join( path, 'admin.shp' ) ) 
-        counties = getCounties( names )
-
-        # expand before dissolve to ensure boundaries overlap
-        counties['geometry'] = counties['geometry'].buffer(0.001)
-        counties = counties.dissolve( aggfunc='sum')
-
-        # orient polygon points clockwise
-        counties.geometry = counties.geometry.apply( orient, args=(1,) )
-        return counties
-
-
-    def runTests():
-
-        # get area of interest dataframe
-        county_names = ['Kiambu', 'Laikipia', 'Nakuru', 'Nyandarua', 'Nyeri' ]
-        aoi = GediL4a.getKenyaAoi( os.path.join( root_path, 'aois/kenya' ), county_names )
-
-        # grab meta record of datasets collocated with aoi
-        #metadata = GediL4a.getGranuleMetadata( aoi )            
-        #print ( 'meta records: {}'.format( len( metadata ) ) )
-            
-        # get list of available datasets
-        files = glob.glob( '{path}\\*.h5'.format( path=os.path.join( root_path, 'l4a/data/kenya' ) ) ) 
-        obj = GediL4a( files[ 0 ] )
-        
-        # create geolocation dataframe
-        #geoloc = obj.getGeolocationData()
-        #print( geoloc )
-
-        gdf = obj.getBeamData( aoi=aoi.geometry.iloc[ 0 ] )
-        gdf = gdf.set_index( 'shot_number' )
-
-        # Set up database connection engine
-        engine = create_engine('postgresql://test:&VxEos00@34.163.194.102:5432/4rd-climate-finance')
-
-        """
-        with engine.connect() as connection:
-            result = connection.execute( ("select datetime from gedil4a.kenya"))
-            for row in result:
-                print( row['datetime'] )
-        """
-
-        # GeoDataFrame to PostGIS
-        gdf.to_postgis( con=engine,
-                        name="kenya",
-                        schema="gedil4a",
-                        if_exists='append', 
-                        index=True )
-
-        return
-
-
-# execute main
-if __name__ == '__main__':
-
-    # get repo root path
-    repo = 'gedi'
-    root_path = os.getcwd()[ 0 : os.getcwd().find( repo ) + len ( repo )]
-
-    GediL4a.runTests()
-
-
-
