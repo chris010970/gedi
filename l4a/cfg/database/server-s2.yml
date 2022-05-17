@@ -1,0 +1,10 @@
+server:
+    host: 34.163.194.102
+    port: 5432
+    user: test
+    password: "&VxEos00"
+    database: 4rd-climate-finance
+table:
+    name: s2
+    schema: kenya
+ 

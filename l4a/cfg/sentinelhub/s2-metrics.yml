@@ -1,0 +1,61 @@
+request:
+    evalscript: |       
+                //VERSION=3
+                function setup() {
+                    return {
+                        input: [{
+                            bands: [
+                                "B02",
+                                "B03",
+                                "B04",
+                                "B05",
+                                "B06",
+                                "B07",
+                                "B08",
+                                "B8A",
+                                "B11",
+                                "B12",                                
+                                "SCL",
+                                "dataMask"
+                            ]
+                        }],
+                        output: [
+                        {
+                            id: "stats",
+                            bands: [ "band_b02", "band_b03", "band_b04", "band_b05", "band_b06", "band_b07", "band_b08", "band_b8A", "band_b11", "band_b12", "ndvi", "evi" ],
+                            sampleType: "FLOAT32"                            
+                        },
+                        {
+                            id: "dataMask",
+                            bands: 1
+                        }]
+                    }
+                }
+                function evaluatePixel(samples) {
+
+                    // create qa mask
+                    var qaMask = 0
+                    if ( samples.SCL == 4 || samples.SCL == 5 ) {
+                        qaMask = 1
+                    }
+
+                    // compute ndvi
+                    var ndvi = 0.0
+                    if ( qaMask ==  1 ) 
+                        ndvi = index(samples.B08, samples.B04)
+                        
+                    // compute evi
+                    var evi = 0.0
+                    if ( qaMask == 1 )
+                        evi = 2.5 * (samples.B08 - samples.B04) / ((samples.B08 + 6.0 * samples.B04 - 7.5 * samples.B02) + 1.0);
+                    
+                    return {
+                        stats: [ samples.B02, samples.B03, samples.B04, samples.B05, samples.B06, samples.B07, samples.B08, samples.B8A, samples.B11, samples.B12, ndvi, evi ],
+                        dataMask: [ samples.dataMask * qaMask ]
+                    }
+                }
+    inputs:
+        - collection: SENTINEL2_L2A    
+          mosaic:
+            order: leastRecent
+responses:
