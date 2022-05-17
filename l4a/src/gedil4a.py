@@ -48,6 +48,12 @@ class GediL4a():
                 group = self._hf.get( key )
                 beam = self.getGroupData( group )
 
+                # merge in land cover data
+                beam = pd.merge( beam, 
+                                self.getGroupData( group[ 'land_cover_data'] ), 
+                                how='inner', 
+                                on='shot_number' )
+
                 # reject null retrievals
                 beam = beam.replace( -9999, np.nan )    
                 beam = beam[ beam[ 'agbd' ].notna() ]

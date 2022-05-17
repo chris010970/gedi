@@ -84,7 +84,7 @@ def parseArguments(args=None):
 
     # mandatory args
     parser.add_argument('data_path', action='store', help='path to level-4a datasets' )
-    parser.add_argument('config_file', action='store', help='yaml configuration file' )
+    parser.add_argument('db_file', action='store', help='yaml database configuration file' )
 
     return parser.parse_args(args)
 
@@ -102,11 +102,10 @@ if __name__ == '__main__':
 
     # load config parameters from file
     args = parseArguments()
-    with open( args.config_file, 'r' ) as f:
-        config = munchify( yaml.safe_load( f ) )
+    with open( args.db_file, 'r' ) as f:
+        db_config = munchify( yaml.safe_load( f ) )
 
     # write datasets to postgis data table
     pathnames = glob.glob( '{path}/*.h5'.format( path=args.data_path ) ) 
     for idx, pathname in enumerate( pathnames ):
-        writeToDataTable( pathname, aoi, config )
-
+        writeToDataTable( pathname, aoi, db_config )
