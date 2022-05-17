@@ -152,7 +152,7 @@ def parseArguments(args=None):
     parser.add_argument('--max_records', type=int, help='max records', default=600 )
     parser.add_argument('--max_scenes', type=int, help='max records', default=3 )
     parser.add_argument('--min_date', type=str, help='min date', default=datetime.strptime('2018-01-01', '%Y-%m-%d' ) )
-    parser.add_argument('--max_date', type=str, help='max date', default=datetime.strptime('2020-31-12', '%Y-%m-%d' ) )
+    parser.add_argument('--max_date', type=str, help='max date', default=datetime.strptime('2020-12-31', '%Y-%m-%d' ) )
 
     return parser.parse_args(args)
 
