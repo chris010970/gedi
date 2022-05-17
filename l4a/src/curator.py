@@ -164,6 +164,7 @@ if __name__ == '__main__':
     repo = 'gedi'
     root_path = os.getcwd()[ 0 : os.getcwd().find( repo ) + len ( repo )]
     min_scenes_per_request = 10
+    min_records = 50
 
     # load config parameters from file
     args = parseArguments()
@@ -198,61 +199,66 @@ if __name__ == '__main__':
                                                                                             idx=idx + 1, 
                                                                                             total=len(timestamps),
                                                                                             records=len( records ) ) )
-            for offset in range ( 0, len( records ), args.chunk_size ):
+            # check minimum number of records
+            if len( records ) > min_records:
 
-                # process records in chunks - transform to local utm
-                subset = records[ offset : offset + args.chunk_size ].copy()
-                subset = subset.to_crs( subset.estimate_utm_crs() )
+                # process in chunks
+                for offset in range ( 0, len( records ), args.chunk_size ):
 
-                # get cloudless statistics collocated with gedi observations 
-                args.timeframe = { 'start' : row.date - delta, 'end' : row.date + delta }
-                clear_scenes = getClearScenes( subset, args )
-                
-                # pick cloudfree scenes closest to acquisition date
-                clear_scenes[ 'delta'] = abs ( ( clear_scenes[ 'interval_from' ] - row.date.date() ).dt.days )
-                clear_scenes = filterClearScenes( clear_scenes, args )
+                    # process records in chunks - transform to local utm
+                    subset = records[ offset : offset + args.chunk_size ].copy()
+                    subset = subset.to_crs( subset.estimate_utm_crs() )
 
-                # check for empty dataframe
-                if not clear_scenes.empty:
+                    # get cloudless statistics collocated with gedi observations 
+                    args.timeframe = { 'start' : row.date - delta, 'end' : row.date + delta }
+                    clear_scenes = getClearScenes( subset, args )
+                    
+                    # pick cloudfree scenes closest to acquisition date
+                    clear_scenes[ 'delta'] = abs ( ( clear_scenes[ 'interval_from' ] - row.date.date() ).dt.days )
+                    clear_scenes = filterClearScenes( clear_scenes, args )
 
-                    # iterate through unique clear scene datetimes
-                    for timestamp in clear_scenes.interval_from.unique():
+                    # check for empty dataframe
+                    if not clear_scenes.empty:
 
-                        # extract cloud-free geometries for datetime
-                        args.timeframe = { 'start' : timestamp, 'end' : timestamp + timedelta(hours=24) }
-                        df = clear_scenes[ clear_scenes.interval_from == timestamp ]
+                        # iterate through unique clear scene datetimes
+                        for timestamp in clear_scenes.interval_from.unique():
 
-                        if len( df ) > min_scenes_per_request:
+                            # extract cloud-free geometries for datetime
+                            args.timeframe = { 'start' : timestamp, 'end' : timestamp + timedelta(hours=24) }
+                            df = clear_scenes[ clear_scenes.interval_from == timestamp ]
 
-                            # merge with lidar subset - convert to geodataframe 
-                            gdf = gpd.GeoDataFrame( pd.merge( df, 
-                                                            subset[ [ 'shot_number', 'geometry' ] ], 
-                                                            how='inner', 
-                                                            left_on = 'id', 
-                                                            right_on='shot_number' ) )
+                            if len( df ) > min_scenes_per_request:
 
-                            print( '... scene: {timestamp} - number of cloudfree geometries: {count}' \
-                                .format ( timestamp=timestamp.strftime( '%Y-%m-%d'), count=len( gdf ) ) )
+                                # merge with lidar subset - convert to geodataframe 
+                                gdf = gpd.GeoDataFrame( pd.merge( df, 
+                                                                subset[ [ 'shot_number', 'geometry' ] ], 
+                                                                how='inner', 
+                                                                left_on = 'id', 
+                                                                right_on='shot_number' ) )
 
-                            # retrieve reflectance / vi statistics - append to list
-                            response = getMetrics( gdf, args )
+                                print( '... scene: {timestamp} - number of cloudfree geometries: {count}' \
+                                    .format ( timestamp=timestamp.strftime( '%Y-%m-%d'), count=len( gdf ) ) )
 
-                            # append concatenated frame - check for empties
-                            if ( len( [ x for x in response._dfs if not x.empty ] ) > 0 ):
-                                samples.append( pd.concat( [ x for x in response._dfs if not x.empty ], ignore_index=True ) )
+                                # retrieve reflectance / vi statistics - append to list
+                                response = getMetrics( gdf, args )
+                                if response is not None:
+
+                                    # append concatenated frame - check for empties
+                                    if ( len( [ x for x in response._dfs if not x.empty ] ) > 0 ):
+                                        samples.append( pd.concat( [ x for x in response._dfs if not x.empty ], ignore_index=True ) )
 
 
-            # merge sample stats with gedi dataframe
-            stats = pd.merge( records, 
-                            pd.concat( samples, ignore_index=True ), 
-                            how='inner', 
-                            left_on = 'shot_number', 
-                            right_on='id' )
+                # merge sample stats with gedi dataframe
+                stats = pd.merge( records, 
+                                pd.concat( samples, ignore_index=True ), 
+                                how='inner', 
+                                left_on = 'shot_number', 
+                                right_on='id' )
 
-            # drop superfluous columns and sort on shot number
-            stats = stats.drop( [ 'id', 'interval_from', 'interval_to' ], axis=1 )
-            stats = stats.sort_values( 'shot_number' )
+                # drop superfluous columns and sort on shot number
+                stats = stats.drop( [ 'id', 'interval_from', 'interval_to' ], axis=1 )
+                stats = stats.sort_values( 'shot_number' )
 
-            # save to csv file            
-            stats.to_csv( pathname )
-            print( f'... created file: {pathname}' )
+                # save to csv file            
+                stats.to_csv( pathname )
+                print( f'... created file: {pathname}' )
