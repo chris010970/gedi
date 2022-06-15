@@ -3,11 +3,18 @@ request:
                 //VERSION=3
                 function setup() {
                     return {
-                        input: ["VV", "VH", "shadowMask" ],
+                        input: [{
+                            bands: [
+                                "VV",
+                                "VH",
+                                "shadowMask",
+                                "dataMask"
+                            ]
+                        }],
                         output: [
                         {
                             id: "stats",
-                            bands: [ "band_vv", "band_vh", "band_rvi" ],
+                            bands: [ "vv", "vh", "rvi" ],
                             sampleType: "FLOAT32"                            
                         },
                         {
