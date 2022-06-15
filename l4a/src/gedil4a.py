@@ -1,3 +1,5 @@
+import os
+import re
 import h5py
 import requests
 import numpy as np
@@ -42,7 +44,7 @@ class GediL4a():
 
         # scan through keys
         for key in list( self._hf.keys()):
-            if key.startswith( 'BEAM'):
+            if key.startswith( 'BEAM' ):
 
                 # get beam group
                 group = self._hf.get( key )
@@ -239,6 +241,36 @@ class GediL4a():
                 break
             
         # construct metadata geodataframe registered to geographic crs
-        df = gpd.GeoDataFrame( metadata )
-        df = df.set_crs( "EPSG:4326" )
-        return df.drop_duplicates( subset=['url'] )
+        gdf = gpd.GeoDataFrame( metadata )
+        gdf = gdf.set_crs( "EPSG:4326" )
+
+        # drop duplicates + fix urls
+        gdf = gdf.drop_duplicates( subset=['url'] )
+        gdf['url'] = gdf['url'].astype( str )
+
+        # get acquisition datetimes from urls
+        gdf[ 'acqtime' ] = GediL4a.getAcquisitionTimes( list( gdf[ 'url' ].values ) )
+        return gdf
+
+    @staticmethod
+    def getAcquisitionTimes( pathnames ):
+
+        acq_times = []
+
+        # convert to list if required
+        if not isinstance( pathnames, list ):
+            pathnames = [ pathnames ]
+
+        # for each pathname / url
+        for pathname in pathnames:
+
+            # extract 13 digit delimited by underscores
+            m = re.search( '_[0-9]{13}_', os.path.basename( pathname ) )
+            dt = str( m.group(0) )
+
+            # convert year / julian date to datetime
+            dt = re.sub('[^0-9]','', dt)
+            acq_times.append( datetime.strptime( dt, '%Y%j%H%M%S') )
+
+        return acq_times
+
