@@ -1,0 +1,10 @@
+server:
+    host: XXX
+    port: 5432
+    user: test 
+    password: XXX
+    database: XXX
+table:
+    name: gedil4a
+    schema: kenya
+ 
