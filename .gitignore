@@ -7,6 +7,8 @@
 *.zip
 *.tgz
 *.rst
+*.json
+*.gpkg
 
 # models
 model.txt
